@@ -6,7 +6,6 @@ server:
     session:
       cookie:
         max-age: 2592000
-
 spring:
   application:
     name: yunshopping-backend
