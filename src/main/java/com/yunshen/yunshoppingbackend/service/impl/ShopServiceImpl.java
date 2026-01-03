@@ -6,20 +6,25 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yunshen.yunshoppingbackend.common.ErrorCode;
 import com.yunshen.yunshoppingbackend.constant.ShopConstant;
+import com.yunshen.yunshoppingbackend.constant.UserConstant;
 import com.yunshen.yunshoppingbackend.exception.BusinessException;
 import com.yunshen.yunshoppingbackend.exception.ThrowUtils;
 import com.yunshen.yunshoppingbackend.mapper.ShopMapper;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopAddRequest;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopQueryRequest;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopReviewRequest;
+import com.yunshen.yunshoppingbackend.model.dto.shop.ShopStatusRequest;
+import com.yunshen.yunshoppingbackend.model.dto.shop.ShopUpdateRequest;
 import com.yunshen.yunshoppingbackend.model.entity.Shop;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.ShopVO;
 import com.yunshen.yunshoppingbackend.service.ShopService;
+import com.yunshen.yunshoppingbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +35,9 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements ShopService {
+
+    @Resource
+    private UserService userService;
 
     @Override
     public Long addShop(ShopAddRequest shopAddRequest, User loginUser) {
@@ -59,6 +67,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements Sh
     @Override
     public Boolean reviewShop(ShopReviewRequest reviewRequest, User loginUser) {
         ThrowUtils.throwIf(reviewRequest == null || reviewRequest.getId() == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(reviewRequest.getReviewStatus() == null, ErrorCode.PARAMS_ERROR, "审核状态不能为空");
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
 
         Shop shop = this.getById(reviewRequest.getId());
@@ -69,9 +78,16 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements Sh
         shop.setReviewerId(loginUser.getId());
         shop.setReviewTime(new Date());
 
-        if (ShopConstant.REVIEW_STATUS_PASS == reviewRequest.getReviewStatus()) {
+        if (Integer.valueOf(ShopConstant.REVIEW_STATUS_PASS).equals(reviewRequest.getReviewStatus())) {
             shop.setShopStatus(ShopConstant.SHOP_STATUS_OPEN);
-        } else if (ShopConstant.REVIEW_STATUS_REJECT == reviewRequest.getReviewStatus()) {
+
+            User shopOwner = userService.getById(shop.getUserId());
+            if (shopOwner != null && !UserConstant.SELLER_ROLE.equals(shopOwner.getUserRole())) {
+                shopOwner.setUserRole(UserConstant.SELLER_ROLE);
+                userService.updateById(shopOwner);
+                log.info("店铺审核通过 用户角色变更为卖家 userId:{} shopId:{}", shopOwner.getId(), shop.getId());
+            }
+        } else if (Integer.valueOf(ShopConstant.REVIEW_STATUS_REJECT).equals(reviewRequest.getReviewStatus())) {
             shop.setShopStatus(ShopConstant.SHOP_STATUS_REJECTED);
         }
 
@@ -113,5 +129,34 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements Sh
         ShopVO shopVO = new ShopVO();
         BeanUtil.copyProperties(shop, shopVO);
         return shopVO;
+    }
+
+    @Override
+    public Boolean updateShop(ShopUpdateRequest shopUpdateRequest) {
+        ThrowUtils.throwIf(shopUpdateRequest == null || shopUpdateRequest.getId() == null, ErrorCode.PARAMS_ERROR);
+
+        Shop shop = this.getById(shopUpdateRequest.getId());
+        ThrowUtils.throwIf(shop == null, ErrorCode.NOT_FOUND_ERROR);
+
+        BeanUtil.copyProperties(shopUpdateRequest, shop);
+        boolean result = this.updateById(shop);
+
+        log.info("更新店铺信息 shopId:{} shopName:{}", shop.getId(), shop.getShopName());
+        return result;
+    }
+
+    @Override
+    public Boolean updateShopStatus(ShopStatusRequest shopStatusRequest) {
+        ThrowUtils.throwIf(shopStatusRequest == null || shopStatusRequest.getId() == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(shopStatusRequest.getShopStatus() == null, ErrorCode.PARAMS_ERROR, "店铺状态不能为空");
+
+        Shop shop = this.getById(shopStatusRequest.getId());
+        ThrowUtils.throwIf(shop == null, ErrorCode.NOT_FOUND_ERROR);
+
+        shop.setShopStatus(shopStatusRequest.getShopStatus());
+        boolean result = this.updateById(shop);
+
+        log.info("修改店铺状态 shopId:{} shopStatus:{}", shop.getId(), shopStatusRequest.getShopStatus());
+        return result;
     }
 }

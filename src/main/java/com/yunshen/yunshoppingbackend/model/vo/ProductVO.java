@@ -50,6 +50,8 @@ public class ProductVO implements Serializable {
 
     private Integer status;
 
+    private Integer reviewStatus;
+
     private Integer viewCount;
 
     private Integer favoriteCount;

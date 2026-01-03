@@ -11,6 +11,8 @@ import com.yunshen.yunshoppingbackend.exception.ThrowUtils;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductAddRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductQueryRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductReviewRequest;
+import com.yunshen.yunshoppingbackend.model.dto.product.ProductStatusRequest;
+import com.yunshen.yunshoppingbackend.model.dto.product.ProductUpdateRequest;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.ProductVO;
 import com.yunshen.yunshoppingbackend.service.ProductService;
@@ -84,5 +86,25 @@ public class ProductController {
         ThrowUtils.throwIf(id == null, ErrorCode.PARAMS_ERROR);
         ProductVO productVO = productService.getProductVO(productService.getById(id));
         return ResultUtils.success(productVO);
+    }
+
+    /**
+     * 更新商品信息
+     */
+    @PostMapping("/update")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateProduct(@RequestBody ProductUpdateRequest productUpdateRequest) {
+        Boolean result = productService.updateProduct(productUpdateRequest);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 修改商品上下架状态
+     */
+    @PostMapping("/status")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateProductStatus(@RequestBody ProductStatusRequest productStatusRequest) {
+        Boolean result = productService.updateProductStatus(productStatusRequest);
+        return ResultUtils.success(result);
     }
 }

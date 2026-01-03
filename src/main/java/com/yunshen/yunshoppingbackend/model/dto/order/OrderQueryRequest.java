@@ -17,6 +17,8 @@ public class OrderQueryRequest extends PageRequest implements Serializable {
 
     private String orderNo;
 
+    private Long userId;
+
     private Long shopId;
 
     private Integer orderStatus;

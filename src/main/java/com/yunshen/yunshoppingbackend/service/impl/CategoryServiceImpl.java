@@ -112,4 +112,25 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
         categoryVO.setChildren(new ArrayList<>());
         return categoryVO;
     }
+
+    @Override
+    public List<Long> getAllSubCategoryIds(Long categoryId) {
+        if (categoryId == null) {
+            return new ArrayList<>();
+        }
+
+        List<Long> categoryIds = new ArrayList<>();
+        categoryIds.add(categoryId);
+
+        QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("parentId", categoryId);
+        queryWrapper.select("id");
+        List<Category> children = this.list(queryWrapper);
+
+        for (Category child : children) {
+            categoryIds.addAll(getAllSubCategoryIds(child.getId()));
+        }
+
+        return categoryIds;
+    }
 }

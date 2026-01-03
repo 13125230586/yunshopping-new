@@ -25,9 +25,11 @@ import com.yunshen.yunshoppingbackend.model.vo.OrderItemVO;
 import com.yunshen.yunshoppingbackend.model.vo.OrderVO;
 import com.yunshen.yunshoppingbackend.service.OrderService;
 import com.yunshen.yunshoppingbackend.service.ProductService;
+import com.yunshen.yunshoppingbackend.service.UserService;
 import com.yunshen.yunshoppingbackend.utils.OrderNumberUtil;
 import com.yunshen.yunshoppingbackend.utils.PriceUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +59,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Resource
     private ProductService productService;
+
+    @Resource
+    private UserService userService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -199,9 +204,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         int pageSize = orderQueryRequest.getPageSize();
 
         QueryWrapper<Order> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userId", loginUser.getId());
+
+        boolean isAdmin = userService.isAdmin(loginUser);
+        if (!isAdmin) {
+            queryWrapper.eq("userId", loginUser.getId());
+        }
+
         queryWrapper.eq(orderQueryRequest.getId() != null, "id", orderQueryRequest.getId());
-        queryWrapper.eq(orderQueryRequest.getOrderNo() != null, "orderNo", orderQueryRequest.getOrderNo());
+        queryWrapper.like(StringUtils.isNotBlank(orderQueryRequest.getOrderNo()), "orderNo", orderQueryRequest.getOrderNo());
+        queryWrapper.eq(orderQueryRequest.getUserId() != null, "userId", orderQueryRequest.getUserId());
         queryWrapper.eq(orderQueryRequest.getShopId() != null, "shopId", orderQueryRequest.getShopId());
         queryWrapper.eq(orderQueryRequest.getOrderStatus() != null, "orderStatus", orderQueryRequest.getOrderStatus());
         queryWrapper.eq(orderQueryRequest.getPaymentStatus() != null, "paymentStatus", orderQueryRequest.getPaymentStatus());

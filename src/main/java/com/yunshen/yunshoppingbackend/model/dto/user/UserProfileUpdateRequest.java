@@ -5,15 +5,10 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 用户修改请求
+ * 用户个人资料更新请求
  */
 @Data
-public class UserUpdateRequest implements Serializable {
-
-    /**
-     * 用户ID
-     */
-    private Long id;
+public class UserProfileUpdateRequest implements Serializable {
 
     /**
      * 用户昵称
@@ -29,21 +24,6 @@ public class UserUpdateRequest implements Serializable {
      * 用户简介
      */
     private String userProfile;
-
-    /**
-     * 用户角色
-     */
-    private String userRole;
-
-    /**
-     * 手机号
-     */
-    private String phone;
-
-    /**
-     * 邮箱
-     */
-    private String email;
 
     private static final long serialVersionUID = 1L;
 }

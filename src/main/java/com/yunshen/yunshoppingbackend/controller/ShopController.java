@@ -11,6 +11,8 @@ import com.yunshen.yunshoppingbackend.exception.ThrowUtils;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopAddRequest;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopQueryRequest;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopReviewRequest;
+import com.yunshen.yunshoppingbackend.model.dto.shop.ShopStatusRequest;
+import com.yunshen.yunshoppingbackend.model.dto.shop.ShopUpdateRequest;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.ShopVO;
 import com.yunshen.yunshoppingbackend.service.ShopService;
@@ -84,5 +86,25 @@ public class ShopController {
         ThrowUtils.throwIf(id == null, ErrorCode.PARAMS_ERROR);
         ShopVO shopVO = shopService.getShopVO(shopService.getById(id));
         return ResultUtils.success(shopVO);
+    }
+
+    /**
+     * 更新店铺信息
+     */
+    @PostMapping("/update")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateShop(@RequestBody ShopUpdateRequest shopUpdateRequest) {
+        Boolean result = shopService.updateShop(shopUpdateRequest);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 修改店铺状态
+     */
+    @PostMapping("/status")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateShopStatus(@RequestBody ShopStatusRequest shopStatusRequest) {
+        Boolean result = shopService.updateShopStatus(shopStatusRequest);
+        return ResultUtils.success(result);
     }
 }

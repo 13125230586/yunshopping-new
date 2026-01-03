@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductAddRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductQueryRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductReviewRequest;
+import com.yunshen.yunshoppingbackend.model.dto.product.ProductStatusRequest;
+import com.yunshen.yunshoppingbackend.model.dto.product.ProductUpdateRequest;
 import com.yunshen.yunshoppingbackend.model.entity.Product;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.ProductVO;
@@ -43,4 +45,14 @@ public interface ProductService extends IService<Product> {
      * 恢复库存
      */
     Boolean restoreStock(Long productId, Integer quantity);
+
+    /**
+     * 更新商品信息
+     */
+    Boolean updateProduct(ProductUpdateRequest productUpdateRequest);
+
+    /**
+     * 修改商品状态
+     */
+    Boolean updateProductStatus(ProductStatusRequest productStatusRequest);
 }

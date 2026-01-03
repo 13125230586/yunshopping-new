@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopAddRequest;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopQueryRequest;
 import com.yunshen.yunshoppingbackend.model.dto.shop.ShopReviewRequest;
+import com.yunshen.yunshoppingbackend.model.dto.shop.ShopStatusRequest;
+import com.yunshen.yunshoppingbackend.model.dto.shop.ShopUpdateRequest;
 import com.yunshen.yunshoppingbackend.model.entity.Shop;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.ShopVO;
@@ -33,4 +35,14 @@ public interface ShopService extends IService<Shop> {
      * 获取店铺VO
      */
     ShopVO getShopVO(Shop shop);
+
+    /**
+     * 更新店铺信息
+     */
+    Boolean updateShop(ShopUpdateRequest shopUpdateRequest);
+
+    /**
+     * 修改店铺状态
+     */
+    Boolean updateShopStatus(ShopStatusRequest shopStatusRequest);
 }

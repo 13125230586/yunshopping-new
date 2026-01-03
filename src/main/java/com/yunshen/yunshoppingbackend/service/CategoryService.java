@@ -35,4 +35,9 @@ public interface CategoryService extends IService<Category> {
      * 获取分类VO
      */
     CategoryVO getCategoryVO(Category category);
+
+    /**
+     * 获取某分类及其所有子分类的ID列表
+     */
+    List<Long> getAllSubCategoryIds(Long categoryId);
 }
