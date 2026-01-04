@@ -8,6 +8,8 @@ import com.yunshen.yunshoppingbackend.common.ResultUtils;
 import com.yunshen.yunshoppingbackend.exception.BusinessException;
 import com.yunshen.yunshoppingbackend.common.DeleteRequest;
 import com.yunshen.yunshoppingbackend.manager.CosManager;
+import com.yunshen.yunshoppingbackend.manager.OssManager;
+import com.yunshen.yunshoppingbackend.manager.upload.FileOssPictureUpload;
 import com.yunshen.yunshoppingbackend.manager.upload.FilePictureUpload;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.UploadPictureResult;
@@ -35,6 +37,12 @@ public class FileController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private FileOssPictureUpload fileOssPictureUpload;
+
+    @Resource
+    private OssManager ossManager;
 
     /**
      * 文件上传
@@ -190,6 +198,131 @@ public class FileController {
             return ResultUtils.success(true);
         } catch (Exception e) {
             log.error("删除文件失败 uid:{} fileUrl:{}", loginUser.getId(), fileUrl, e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除文件失败");
+        }
+    }
+
+    /**
+     * OSS文件上传
+     *
+     * @param multipartFile 文件
+     * @param request       请求
+     * @return 上传结果
+     */
+    @PostMapping("/oss/upload")
+    public BaseResponse<UploadPictureResult> uploadPictureOss(
+            @RequestPart("file") MultipartFile multipartFile,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        log.info("OSS文件上传 uid:{} fileName:{}", loginUser.getId(), multipartFile.getOriginalFilename());
+
+        String uploadPathPrefix = String.format("user/%s", loginUser.getId());
+        UploadPictureResult uploadPictureResult = fileOssPictureUpload.uploadPicture(multipartFile, uploadPathPrefix);
+
+        return ResultUtils.success(uploadPictureResult);
+    }
+
+    /**
+     * OSS上传商品图片
+     *
+     * @param multipartFile 文件
+     * @param request       请求
+     * @return 上传结果
+     */
+    @PostMapping("/oss/upload/product")
+    @AuthCheck(mustRole = "seller")
+    public BaseResponse<UploadPictureResult> uploadProductPictureOss(
+            @RequestPart("file") MultipartFile multipartFile,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        log.info("OSS商品图片上传 uid:{} fileName:{}", loginUser.getId(), multipartFile.getOriginalFilename());
+
+        String uploadPathPrefix = "product";
+        UploadPictureResult uploadPictureResult = fileOssPictureUpload.uploadPicture(multipartFile, uploadPathPrefix);
+
+        return ResultUtils.success(uploadPictureResult);
+    }
+
+    /**
+     * OSS上传店铺图片
+     *
+     * @param multipartFile 文件
+     * @param request       请求
+     * @return 上传结果
+     */
+    @PostMapping("/oss/upload/shop")
+    @AuthCheck(mustRole = "seller")
+    public BaseResponse<UploadPictureResult> uploadShopPictureOss(
+            @RequestPart("file") MultipartFile multipartFile,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        log.info("OSS店铺图片上传 uid:{} fileName:{}", loginUser.getId(), multipartFile.getOriginalFilename());
+
+        String uploadPathPrefix = "shop";
+        UploadPictureResult uploadPictureResult = fileOssPictureUpload.uploadPicture(multipartFile, uploadPathPrefix);
+
+        return ResultUtils.success(uploadPictureResult);
+    }
+
+    /**
+     * OSS上传用户头像
+     *
+     * @param multipartFile 文件
+     * @param request       请求
+     * @return 上传结果
+     */
+    @PostMapping("/oss/upload/avatar")
+    public BaseResponse<UploadPictureResult> uploadAvatarOss(
+            @RequestPart("file") MultipartFile multipartFile,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        log.info("OSS用户头像上传 uid:{} fileName:{}", loginUser.getId(), multipartFile.getOriginalFilename());
+
+        String uploadPathPrefix = "avatar";
+        UploadPictureResult uploadPictureResult = fileOssPictureUpload.uploadPicture(multipartFile, uploadPathPrefix);
+
+        return ResultUtils.success(uploadPictureResult);
+    }
+
+    /**
+     * 根据OSS文件URL删除文件
+     *
+     * @param fileUrl 文件URL
+     * @param request 请求
+     * @return 删除结果
+     */
+    @PostMapping("/oss/deleteByUrl")
+    public BaseResponse<Boolean> deleteFileByUrlOss(@RequestParam("fileUrl") String fileUrl,
+                                                      HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+
+        if (StrUtil.isBlank(fileUrl)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件URL不能为空");
+        }
+
+        log.info("OSS根据URL删除文件 uid:{} fileUrl:{}", loginUser.getId(), fileUrl);
+
+        try {
+            String fileKey = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+            ossManager.deleteObject(fileKey);
+            return ResultUtils.success(true);
+        } catch (Exception e) {
+            log.error("OSS删除文件失败 uid:{} fileUrl:{}", loginUser.getId(), fileUrl, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "删除文件失败");
         }
     }
