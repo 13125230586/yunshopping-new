@@ -56,6 +56,8 @@ public class ProductVO implements Serializable {
 
     private Integer favoriteCount;
 
+    private Long userId;
+
     private Date createTime;
 
     private static final long serialVersionUID = 1L;

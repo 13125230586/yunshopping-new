@@ -32,6 +32,8 @@ public class ProductQueryRequest extends PageRequest implements Serializable {
 
     private Integer reviewStatus;
 
+    private Long userId;
+
     private String searchText;
 
     private static final long serialVersionUID = 1L;

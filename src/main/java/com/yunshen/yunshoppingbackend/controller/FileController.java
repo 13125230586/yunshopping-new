@@ -257,7 +257,6 @@ public class FileController {
      * @return 上传结果
      */
     @PostMapping("/oss/upload/shop")
-    @AuthCheck(mustRole = "seller")
     public BaseResponse<UploadPictureResult> uploadShopPictureOss(
             @RequestPart("file") MultipartFile multipartFile,
             HttpServletRequest request) {

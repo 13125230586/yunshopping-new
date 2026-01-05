@@ -89,6 +89,8 @@ ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements Produc
         int current = productQueryRequest.getCurrent();
         int pageSize = productQueryRequest.getPageSize();
 
+        log.info("查询商品列表 userId:{} current:{} pageSize:{}", productQueryRequest.getUserId(), current, pageSize);
+
         QueryWrapper<Product> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq(productQueryRequest.getId() != null, "id", productQueryRequest.getId());
         queryWrapper.like(StringUtils.isNotBlank(productQueryRequest.getProductName()), "productName", productQueryRequest.getProductName());
@@ -102,6 +104,7 @@ ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements Produc
         queryWrapper.eq(StringUtils.isNotBlank(productQueryRequest.getBrandName()), "brandName", productQueryRequest.getBrandName());
         queryWrapper.eq(productQueryRequest.getStatus() != null, "status", productQueryRequest.getStatus());
         queryWrapper.eq(productQueryRequest.getReviewStatus() != null, "reviewStatus", productQueryRequest.getReviewStatus());
+        queryWrapper.eq(productQueryRequest.getUserId() != null, "userId", productQueryRequest.getUserId());
         queryWrapper.ge(productQueryRequest.getMinPrice() != null, "price", productQueryRequest.getMinPrice());
         queryWrapper.le(productQueryRequest.getMaxPrice() != null, "price", productQueryRequest.getMaxPrice());
 

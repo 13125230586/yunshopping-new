@@ -13,6 +13,7 @@ import com.yunshen.yunshoppingbackend.model.dto.product.ProductQueryRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductReviewRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductStatusRequest;
 import com.yunshen.yunshoppingbackend.model.dto.product.ProductUpdateRequest;
+import com.yunshen.yunshoppingbackend.model.entity.Product;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.vo.ProductVO;
 import com.yunshen.yunshoppingbackend.service.ProductService;
@@ -65,7 +66,17 @@ public class ProductController {
     public BaseResponse<Boolean> deleteProduct(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
+
+        Product product = productService.getById(deleteRequest.getId());
+        ThrowUtils.throwIf(product == null, ErrorCode.NOT_FOUND_ERROR, "商品不存在");
+
+        // 只有商品所有者或管理员可以删除
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        boolean isOwner = product.getUserId().equals(loginUser.getId());
+        ThrowUtils.throwIf(!isAdmin && !isOwner, ErrorCode.NO_AUTH_ERROR, "无权限删除该商品");
+
         boolean result = productService.removeById(deleteRequest.getId());
+        log.info("商品删除 productId:{} userId:{} isAdmin:{}", deleteRequest.getId(), loginUser.getId(), isAdmin);
         return ResultUtils.success(result);
     }
 
@@ -92,9 +103,20 @@ public class ProductController {
      * 更新商品信息
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Boolean> updateProduct(@RequestBody ProductUpdateRequest productUpdateRequest) {
+    public BaseResponse<Boolean> updateProduct(@RequestBody ProductUpdateRequest productUpdateRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(productUpdateRequest == null || productUpdateRequest.getId() == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+
+        Product product = productService.getById(productUpdateRequest.getId());
+        ThrowUtils.throwIf(product == null, ErrorCode.NOT_FOUND_ERROR, "商品不存在");
+
+        // 只有商品所有者或管理员可以更新
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        boolean isOwner = product.getUserId().equals(loginUser.getId());
+        ThrowUtils.throwIf(!isAdmin && !isOwner, ErrorCode.NO_AUTH_ERROR, "无权限编辑该商品");
+
         Boolean result = productService.updateProduct(productUpdateRequest);
+        log.info("商品更新 productId:{} userId:{} isAdmin:{}", productUpdateRequest.getId(), loginUser.getId(), isAdmin);
         return ResultUtils.success(result);
     }
 
@@ -102,9 +124,34 @@ public class ProductController {
      * 修改商品上下架状态
      */
     @PostMapping("/status")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Boolean> updateProductStatus(@RequestBody ProductStatusRequest productStatusRequest) {
+    public BaseResponse<Boolean> updateProductStatus(@RequestBody ProductStatusRequest productStatusRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(productStatusRequest == null || productStatusRequest.getId() == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+
+        Product product = productService.getById(productStatusRequest.getId());
+        ThrowUtils.throwIf(product == null, ErrorCode.NOT_FOUND_ERROR, "商品不存在");
+
+        // 只有商品所有者或管理员可以修改状态
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        boolean isOwner = product.getUserId().equals(loginUser.getId());
+        ThrowUtils.throwIf(!isAdmin && !isOwner, ErrorCode.NO_AUTH_ERROR, "无权限修改该商品状态");
+
         Boolean result = productService.updateProductStatus(productStatusRequest);
+        log.info("商品状态修改 productId:{} status:{} userId:{} isAdmin:{}", productStatusRequest.getId(), productStatusRequest.getStatus(), loginUser.getId(), isAdmin);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 卖家分页查询自己的商品
+     */
+    @PostMapping("/my/list/page")
+    public BaseResponse<Page<ProductVO>> listMyProductByPage(@RequestBody ProductQueryRequest productQueryRequest, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        productQueryRequest.setUserId(loginUser.getId());
+
+        Page<ProductVO> productVOPage = productService.listProductVOByPage(productQueryRequest);
+        log.info("卖家查询自己的商品 userId:{} total:{} current:{} pageSize:{}",
+                loginUser.getId(), productVOPage.getTotal(), productQueryRequest.getCurrent(), productQueryRequest.getPageSize());
+        return ResultUtils.success(productVOPage);
     }
 }
