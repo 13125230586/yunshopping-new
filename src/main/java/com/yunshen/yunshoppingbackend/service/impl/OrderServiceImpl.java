@@ -10,19 +10,27 @@ import com.yunshen.yunshoppingbackend.constant.OrderConstant;
 import com.yunshen.yunshoppingbackend.exception.ThrowUtils;
 import com.yunshen.yunshoppingbackend.mapper.AddressMapper;
 import com.yunshen.yunshoppingbackend.mapper.CartMapper;
+import com.yunshen.yunshoppingbackend.mapper.CouponMapper;
+import com.yunshen.yunshoppingbackend.mapper.MemberMapper;
 import com.yunshen.yunshoppingbackend.mapper.OrderItemMapper;
 import com.yunshen.yunshoppingbackend.mapper.OrderMapper;
 import com.yunshen.yunshoppingbackend.mapper.ProductMapper;
+import com.yunshen.yunshoppingbackend.mapper.UserCouponMapper;
 import com.yunshen.yunshoppingbackend.model.dto.order.OrderCreateRequest;
 import com.yunshen.yunshoppingbackend.model.dto.order.OrderQueryRequest;
 import com.yunshen.yunshoppingbackend.model.entity.Address;
 import com.yunshen.yunshoppingbackend.model.entity.Cart;
+import com.yunshen.yunshoppingbackend.model.entity.Coupon;
+import com.yunshen.yunshoppingbackend.model.entity.Member;
+import com.yunshen.yunshoppingbackend.model.entity.MemberLevel;
 import com.yunshen.yunshoppingbackend.model.entity.Order;
 import com.yunshen.yunshoppingbackend.model.entity.OrderItem;
 import com.yunshen.yunshoppingbackend.model.entity.Product;
 import com.yunshen.yunshoppingbackend.model.entity.User;
+import com.yunshen.yunshoppingbackend.model.entity.UserCoupon;
 import com.yunshen.yunshoppingbackend.model.vo.OrderItemVO;
 import com.yunshen.yunshoppingbackend.model.vo.OrderVO;
+import com.yunshen.yunshoppingbackend.service.MemberLevelService;
 import com.yunshen.yunshoppingbackend.service.OrderService;
 import com.yunshen.yunshoppingbackend.service.ProductService;
 import com.yunshen.yunshoppingbackend.service.UserService;
@@ -35,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -63,6 +72,18 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     @Resource
     private UserService userService;
 
+    @Resource
+    private MemberMapper memberMapper;
+
+    @Resource
+    private MemberLevelService memberLevelService;
+
+    @Resource
+    private CouponMapper couponMapper;
+
+    @Resource
+    private UserCouponMapper userCouponMapper;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createOrder(OrderCreateRequest orderCreateRequest, User loginUser) {
@@ -71,6 +92,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         List<Long> cartIds = orderCreateRequest.getCartIds();
         Long addressId = orderCreateRequest.getAddressId();
+        Long couponId = orderCreateRequest.getCouponId();
+
         ThrowUtils.throwIf(cartIds == null || cartIds.isEmpty(), ErrorCode.PARAMS_ERROR, "购物车为空");
         ThrowUtils.throwIf(addressId == null, ErrorCode.PARAMS_ERROR, "请选择收货地址");
 
@@ -101,12 +124,75 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             totalAmount = PriceUtil.add(totalAmount, itemTotal);
         }
 
+        BigDecimal payAmount = totalAmount;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+
+        QueryWrapper<Member> memberQueryWrapper = new QueryWrapper<>();
+        memberQueryWrapper.eq("userId", loginUser.getId());
+        Member member = memberMapper.selectOne(memberQueryWrapper);
+
+        if (member != null && member.getStatus() == 0) {
+            MemberLevel memberLevel = memberLevelService.getById(member.getLevelId());
+            if (memberLevel != null && memberLevel.getDiscountRate() != null) {
+                BigDecimal memberDiscount = PriceUtil.calculateDiscountPrice(totalAmount, memberLevel.getDiscountRate());
+                BigDecimal memberDiscountAmount = totalAmount.subtract(memberDiscount).setScale(2, RoundingMode.HALF_UP);
+                payAmount = memberDiscount;
+                discountAmount = PriceUtil.add(discountAmount, memberDiscountAmount);
+
+                log.info("应用会员折扣 userId:{} levelId:{} discountRate:{} discountAmount:{}",
+                        loginUser.getId(), memberLevel.getId(), memberLevel.getDiscountRate(), memberDiscountAmount);
+            }
+        }
+
+        if (couponId != null) {
+            log.info("使用优惠券 userId:{} couponId:{}", loginUser.getId(), couponId);
+
+            QueryWrapper<UserCoupon> userCouponQueryWrapper = new QueryWrapper<>();
+            userCouponQueryWrapper.eq("userId", loginUser.getId());
+            userCouponQueryWrapper.eq("couponId", couponId);
+            userCouponQueryWrapper.eq("status", 0);
+            UserCoupon userCoupon = userCouponMapper.selectOne(userCouponQueryWrapper);
+
+            if (userCoupon == null) {
+                log.warn("用户优惠券不存在或已使用 userId:{} couponId:{}", loginUser.getId(), couponId);
+            }
+
+            ThrowUtils.throwIf(userCoupon == null, ErrorCode.PARAMS_ERROR, "优惠券不可用");
+
+            Coupon coupon = couponMapper.selectById(couponId);
+            ThrowUtils.throwIf(coupon == null, ErrorCode.NOT_FOUND_ERROR, "优惠券不存在");
+            ThrowUtils.throwIf(coupon.getStatus() != 1, ErrorCode.PARAMS_ERROR, "优惠券已失效");
+
+            if (coupon.getMinAmount() != null && payAmount.compareTo(coupon.getMinAmount()) < 0) {
+                ThrowUtils.throwIf(true, ErrorCode.PARAMS_ERROR, "订单金额未达到优惠券使用门槛");
+            }
+
+            BigDecimal couponDiscountAmount = BigDecimal.ZERO;
+            if (coupon.getCouponType() == 1 || coupon.getCouponType() == 3) {
+                couponDiscountAmount = coupon.getDiscountAmount();
+            } else if (coupon.getCouponType() == 2 && coupon.getDiscountRate() != null) {
+                BigDecimal discountMultiplier = BigDecimal.ONE.subtract(coupon.getDiscountRate()).setScale(2, RoundingMode.HALF_UP);
+                couponDiscountAmount = payAmount.multiply(discountMultiplier).setScale(2, RoundingMode.HALF_UP);
+            }
+
+            payAmount = PriceUtil.calculateCouponPrice(payAmount, couponDiscountAmount);
+            discountAmount = PriceUtil.add(discountAmount, couponDiscountAmount);
+
+            userCoupon.setStatus(1);
+            userCoupon.setUseTime(new java.util.Date());
+            userCouponMapper.updateById(userCoupon);
+
+            log.info("应用优惠券 userId:{} couponId:{} couponType:{} discountAmount:{}",
+                    loginUser.getId(), couponId, coupon.getCouponType(), couponDiscountAmount);
+        }
+
         Order order = new Order();
         order.setOrderNo(OrderNumberUtil.generateOrderNo());
         order.setUserId(loginUser.getId());
         order.setShopId(shopId);
         order.setTotalAmount(totalAmount);
-        order.setPayAmount(totalAmount);
+        order.setPayAmount(payAmount);
+        order.setDiscountAmount(discountAmount);
         order.setOrderStatus(OrderConstant.ORDER_STATUS_WAIT_PAY);
         order.setPaymentStatus(0);
         order.setReceiverName(address.getReceiverName());
@@ -135,8 +221,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         cartMapper.deleteBatchIds(cartIds);
 
-        log.info("创建订单 userId:{} orderId:{} orderNo:{} totalAmount:{}",
-                loginUser.getId(), order.getId(), order.getOrderNo(), JSONObject.toJSONString(totalAmount));
+        log.info("创建订单 userId:{} orderId:{} orderNo:{} totalAmount:{} payAmount:{} discountAmount:{}",
+                loginUser.getId(), order.getId(), order.getOrderNo(), totalAmount, payAmount, discountAmount);
         return order.getId();
     }
 

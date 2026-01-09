@@ -8,38 +8,28 @@ import java.math.BigDecimal;
 import java.util.Date;
 
 /**
- * 优惠券实体
+ * 会员信息实体
  */
-@TableName(value = "coupon")
+@TableName(value = "member")
 @Data
-public class Coupon implements Serializable {
+public class Member implements Serializable {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String couponName;
+    private Long userId;
 
-    private Integer couponType;
+    private Long levelId;
 
-    private BigDecimal discountAmount;
+    private Integer growthValue;
 
-    private BigDecimal discountRate;
+    private Date expireTime;
 
-    private BigDecimal minAmount;
-
-    private Integer totalCount;
-
-    private Integer usedCount;
-
-    private Long shopId;
-
-    private String forMemberLevel;
-
-    private Date startTime;
-
-    private Date endTime;
+    private Date activateTime;
 
     private Integer status;
+
+    private BigDecimal totalConsumeAmount;
 
     private Date createTime;
 

@@ -38,6 +38,10 @@ public class User implements Serializable {
 
     private Long defaultAddressId;
 
+    private Long memberId;
+
+    private Integer isMember;
+
     private Date editTime;
 
     private Date createTime;

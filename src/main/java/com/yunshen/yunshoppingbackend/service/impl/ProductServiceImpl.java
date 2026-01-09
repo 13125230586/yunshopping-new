@@ -89,11 +89,18 @@ ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements Produc
         int current = productQueryRequest.getCurrent();
         int pageSize = productQueryRequest.getPageSize();
 
-        log.info("查询商品列表 userId:{} current:{} pageSize:{}", productQueryRequest.getUserId(), current, pageSize);
+        log.info("查询商品列表 userId:{} current:{} pageSize:{} searchText:{}",
+                productQueryRequest.getUserId(), current, pageSize, productQueryRequest.getSearchText());
 
         QueryWrapper<Product> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq(productQueryRequest.getId() != null, "id", productQueryRequest.getId());
-        queryWrapper.like(StringUtils.isNotBlank(productQueryRequest.getProductName()), "productName", productQueryRequest.getProductName());
+
+        // 支持通过searchText或productName进行模糊查询
+        if (StringUtils.isNotBlank(productQueryRequest.getSearchText())) {
+            queryWrapper.like("productName", productQueryRequest.getSearchText());
+        } else if (StringUtils.isNotBlank(productQueryRequest.getProductName())) {
+            queryWrapper.like("productName", productQueryRequest.getProductName());
+        }
 
         if (productQueryRequest.getCategoryId() != null) {
             List<Long> categoryIds = categoryService.getAllSubCategoryIds(productQueryRequest.getCategoryId());
