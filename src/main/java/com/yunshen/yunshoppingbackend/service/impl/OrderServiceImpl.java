@@ -15,6 +15,7 @@ import com.yunshen.yunshoppingbackend.mapper.MemberMapper;
 import com.yunshen.yunshoppingbackend.mapper.OrderItemMapper;
 import com.yunshen.yunshoppingbackend.mapper.OrderMapper;
 import com.yunshen.yunshoppingbackend.mapper.ProductMapper;
+import com.yunshen.yunshoppingbackend.mapper.ShopMapper;
 import com.yunshen.yunshoppingbackend.mapper.UserCouponMapper;
 import com.yunshen.yunshoppingbackend.model.dto.order.OrderCreateRequest;
 import com.yunshen.yunshoppingbackend.model.dto.order.OrderQueryRequest;
@@ -26,8 +27,10 @@ import com.yunshen.yunshoppingbackend.model.entity.MemberLevel;
 import com.yunshen.yunshoppingbackend.model.entity.Order;
 import com.yunshen.yunshoppingbackend.model.entity.OrderItem;
 import com.yunshen.yunshoppingbackend.model.entity.Product;
+import com.yunshen.yunshoppingbackend.model.entity.Shop;
 import com.yunshen.yunshoppingbackend.model.entity.User;
 import com.yunshen.yunshoppingbackend.model.entity.UserCoupon;
+import com.yunshen.yunshoppingbackend.model.enums.UserRoleEnum;
 import com.yunshen.yunshoppingbackend.model.vo.OrderItemVO;
 import com.yunshen.yunshoppingbackend.model.vo.OrderVO;
 import com.yunshen.yunshoppingbackend.service.MemberLevelService;
@@ -83,6 +86,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Resource
     private UserCouponMapper userCouponMapper;
+
+    @Resource
+    private ShopMapper shopMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -347,5 +353,80 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         orderVO.setOrderItems(orderItemVOList);
         return orderVO;
+    }
+
+    @Override
+    public Page<OrderVO> listSellerOrderVOByPage(OrderQueryRequest orderQueryRequest, User loginUser) {
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        ThrowUtils.throwIf(!UserRoleEnum.SELLER.getValue().equals(loginUser.getUserRole()),
+                ErrorCode.NO_AUTH_ERROR, "只有卖家可以访问");
+
+        int current = orderQueryRequest.getCurrent();
+        int pageSize = orderQueryRequest.getPageSize();
+
+        QueryWrapper<Shop> shopQueryWrapper = new QueryWrapper<>();
+        shopQueryWrapper.eq("userId", loginUser.getId());
+        List<Shop> shops = shopMapper.selectList(shopQueryWrapper);
+
+        if (shops.isEmpty()) {
+            log.info("查询卖家店铺为空 userId:{}", loginUser.getId());
+            return new Page<>(current, pageSize, 0);
+        }
+
+        List<Long> shopIds = shops.stream().map(Shop::getId).collect(Collectors.toList());
+        log.info("查询卖家店铺 userId:{} shopIds:{}", loginUser.getId(), JSONObject.toJSONString(shopIds));
+
+        QueryWrapper<Order> queryWrapper = new QueryWrapper<>();
+        queryWrapper.in("shopId", shopIds);
+
+        queryWrapper.eq(orderQueryRequest.getId() != null, "id", orderQueryRequest.getId());
+        queryWrapper.like(StringUtils.isNotBlank(orderQueryRequest.getOrderNo()), "orderNo", orderQueryRequest.getOrderNo());
+        queryWrapper.eq(orderQueryRequest.getUserId() != null, "userId", orderQueryRequest.getUserId());
+        queryWrapper.eq(orderQueryRequest.getShopId() != null, "shopId", orderQueryRequest.getShopId());
+        queryWrapper.eq(orderQueryRequest.getOrderStatus() != null, "orderStatus", orderQueryRequest.getOrderStatus());
+        queryWrapper.eq(orderQueryRequest.getPaymentStatus() != null, "paymentStatus", orderQueryRequest.getPaymentStatus());
+        queryWrapper.orderByDesc("createTime");
+
+        Page<Order> orderPage = this.page(new Page<>(current, pageSize), queryWrapper);
+        Page<OrderVO> orderVOPage = new Page<>(current, pageSize, orderPage.getTotal());
+
+        List<OrderVO> orderVOList = orderPage.getRecords().stream()
+                .map(this::getOrderVO)
+                .collect(Collectors.toList());
+        orderVOPage.setRecords(orderVOList);
+
+        log.info("卖家分页查询订单 userId:{} shopIds:{} total:{}",
+                loginUser.getId(), JSONObject.toJSONString(shopIds), orderPage.getTotal());
+
+        return orderVOPage;
+    }
+
+    @Override
+    public OrderVO getSellerOrderDetail(Long orderId, User loginUser) {
+        ThrowUtils.throwIf(orderId == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        ThrowUtils.throwIf(!UserRoleEnum.SELLER.getValue().equals(loginUser.getUserRole()),
+                ErrorCode.NO_AUTH_ERROR, "只有卖家可以访问");
+
+        QueryWrapper<Shop> shopQueryWrapper = new QueryWrapper<>();
+        shopQueryWrapper.eq("userId", loginUser.getId());
+        List<Shop> shops = shopMapper.selectList(shopQueryWrapper);
+
+        if (shops.isEmpty()) {
+            log.warn("卖家无店铺 userId:{}", loginUser.getId());
+            ThrowUtils.throwIf(true, ErrorCode.NO_AUTH_ERROR, "您还没有店铺");
+        }
+
+        List<Long> shopIds = shops.stream().map(Shop::getId).collect(Collectors.toList());
+
+        Order order = this.getById(orderId);
+        ThrowUtils.throwIf(order == null, ErrorCode.NOT_FOUND_ERROR);
+        ThrowUtils.throwIf(!shopIds.contains(order.getShopId()),
+                ErrorCode.NO_AUTH_ERROR, "无权查看该订单");
+
+        log.info("卖家查询订单详情 userId:{} orderId:{} shopId:{}",
+                loginUser.getId(), orderId, order.getShopId());
+
+        return getOrderVO(order);
     }
 }

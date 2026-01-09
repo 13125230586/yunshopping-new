@@ -95,4 +95,26 @@ public class OrderController {
         OrderVO orderVO = orderService.getOrderDetail(orderId, loginUser);
         return ResultUtils.success(orderVO);
     }
+
+    /**
+     * 卖家分页查询订单
+     */
+    @PostMapping("/seller/list/page")
+    public BaseResponse<Page<OrderVO>> listSellerOrderByPage(@RequestBody OrderQueryRequest orderQueryRequest,
+                                                              HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Page<OrderVO> orderVOPage = orderService.listSellerOrderVOByPage(orderQueryRequest, loginUser);
+        return ResultUtils.success(orderVOPage);
+    }
+
+    /**
+     * 卖家获取订单详情
+     */
+    @GetMapping("/seller/get")
+    public BaseResponse<OrderVO> getSellerOrderDetail(@RequestParam Long orderId, HttpServletRequest request) {
+        ThrowUtils.throwIf(orderId == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        OrderVO orderVO = orderService.getSellerOrderDetail(orderId, loginUser);
+        return ResultUtils.success(orderVO);
+    }
 }

@@ -47,4 +47,14 @@ public interface OrderService extends IService<Order> {
      * 获取订单VO
      */
     OrderVO getOrderVO(Order order);
+
+    /**
+     * 卖家分页查询订单
+     */
+    Page<OrderVO> listSellerOrderVOByPage(OrderQueryRequest orderQueryRequest, User loginUser);
+
+    /**
+     * 卖家获取订单详情
+     */
+    OrderVO getSellerOrderDetail(Long orderId, User loginUser);
 }
